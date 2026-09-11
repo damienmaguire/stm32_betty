@@ -1,0 +1,7 @@
+This firmware is licensed under the GNU General Public License, version 3
+or (at your option) any later version.
+
+https://www.gnu.org/licenses/gpl-3.0.html
+
+libopencm3 and libopeninv are included as submodules and keep the licenses
+of their respective authors (libopencm3 / Johannes Huebner / OpenInverter).

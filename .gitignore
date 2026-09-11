@@ -1,0 +1,12 @@
+obj/
+*.o
+*.d
+*.bin
+*.hex
+*.elf
+*.map
+linker.map
+stm32_betty
+.DS_Store
+*~
+*.bak
