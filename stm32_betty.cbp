@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes" ?>
+<CodeBlocks_project_file>
+	<FileVersion major="1" minor="6" />
+	<Project>
+		<Option title="stm32_betty" />
+		<Option pch_mode="2" />
+		<Option compiler="armelfgcc" />
+		<Build>
+			<Target title="STM32F107">
+				<Option output="stm32_betty" prefix_auto="0" extension_auto="0" />
+				<Option object_output="obj/Release/" />
+				<Option type="1" />
+				<Option compiler="armelfgcc" />
+				<Compiler>
+					<Add directory="include" />
+					<Add directory="libopeninv/include" />
+					<Add directory="libopencm3/include" />
+				</Compiler>
+				<MakeCommands>
+					<Build command="make" />
+					<CompileFile command="$make -f $makefile $file" />
+					<Clean command="make clean" />
+					<DistClean command="make clean" />
+					<AskRebuildNeeded command="$make -q" />
+					<SilentBuild command="make > $(CMD_NULL)" />
+				</MakeCommands>
+			</Target>
+		</Build>
+		<Unit filename="Makefile">
+			<Option target="STM32F107" />
+		</Unit>
+		<Unit filename="include/anain_prj.h" />
+		<Unit filename="include/bmw_crc.h" />
+		<Unit filename="include/digio_prj.h" />
+		<Unit filename="include/errormessage_prj.h" />
+		<Unit filename="include/hwdefs.h" />
+		<Unit filename="include/hwinit.h" />
+		<Unit filename="include/param_prj.h" />
+		<Unit filename="src/bmw_crc.cpp" />
+		<Unit filename="src/hwinit.cpp" />
+		<Unit filename="src/stm32_betty.cpp" />
+		<Unit filename="src/terminal_prj.cpp" />
+		<Extensions>
+			<code_completion />
+		</Extensions>
+	</Project>
+</CodeBlocks_project_file>
