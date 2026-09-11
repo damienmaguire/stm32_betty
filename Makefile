@@ -71,16 +71,8 @@ clean:
 
 get-deps:
 ifneq ($(shell test -s libopencm3/lib/libopencm3_stm32f1.a && echo -n yes),yes)
-	@printf "  GIT DEPS\n"
-	$(Q)if [ ! -f libopencm3/Makefile ]; then \
-		git submodule update --init --recursive || true; \
-	fi
-	$(Q)if [ ! -f libopencm3/Makefile ]; then \
-		git clone --depth 1 https://github.com/jsphuebner/libopencm3.git libopencm3; \
-	fi
-	$(Q)if [ ! -f libopeninv/include/params.h ]; then \
-		git clone --depth 1 https://github.com/jsphuebner/libopeninv.git libopeninv; \
-	fi
+	@printf "  GIT SUBMODULE\n"
+	$(Q)git submodule update --init
 	@printf "  MAKE libopencm3\n"
 	$(Q)${MAKE} -C libopencm3 TARGETS=stm32/f1
 endif

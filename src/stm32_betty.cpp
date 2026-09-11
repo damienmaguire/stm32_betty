@@ -1,4 +1,5 @@
-/*
+/*NOTE : THIS FIRMWARE IS ALMOST ENTIRELY AI GENERATED. TREAT IT WITH CAUTION!!!
+ *
  * stm32_betty — Gen 2 Prius Battery ECU on ZombieVerter VCU V1.3
  *
  * CAN1 500 k: Prius 0x03B / 0x3C9 / 0x3CB / 0x3CD / 0x4D1
