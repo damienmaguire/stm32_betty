@@ -1,4 +1,4 @@
-<img width="4096" height="2304" alt="install1" src="https://github.com/user-attachments/assets/946d591c-aa74-4281-bf0a-96033d6b8194" />
+
 # stm32_betty
 
 Gen 2 Prius (NHW20) Battery ECU on a **ZombieVerter VCU V1.3**.
@@ -6,7 +6,7 @@ Gen 2 Prius (NHW20) Battery ECU on a **ZombieVerter VCU V1.3**.
 This software enables the use of 3 × BMW Gen 1 PHEV 16s modules (48s, 26 Ah) as the hybrid battery in a Gen 2 Toyota Prius car.
 
 PHEV fuction via a Prius Plug-In OBC G9090-47040 in progress.
-
+<img width="4096" height="2304" alt="install1" src="https://github.com/user-attachments/assets/946d591c-aa74-4281-bf0a-96033d6b8194" />
 Work in progress as of Sept 2026.
 
 CAUTION : THIS FIRMWARE IS ALMOST ENTIRELY AI WRITTEN AND HAS NOT AS YET BEEN ROAD TESTED.
