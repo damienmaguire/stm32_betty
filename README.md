@@ -1,3 +1,4 @@
+<img width="4096" height="2304" alt="install1" src="https://github.com/user-attachments/assets/946d591c-aa74-4281-bf0a-96033d6b8194" />
 # stm32_betty
 
 Gen 2 Prius (NHW20) Battery ECU on a **ZombieVerter VCU V1.3**.
