@@ -31,7 +31,7 @@ Provides various drive modes on the web interface.
 | 1 CD | Report `cdspoof` (~74 %) until `socreal` ≤ `cdfloor`, then Hold |
 | 2 EV | Report `evspoof` (~60 %) and keep CCL ≥ 60 so the EV button is allowed |
 | 3 Range | CDL = 0 — force the engine |
-
+<img width="480" height="270" alt="menu" src="https://github.com/user-attachments/assets/ce7d0923-890b-4280-933f-540aae5649c6" />
 
 ## Build
 
