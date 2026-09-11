@@ -1,12 +1,16 @@
 # stm32_betty
 
-Gen 2 Prius (NHW20) Battery ECU on a **ZombieVerter VCU V1.3** (STM32F107).
+Gen 2 Prius (NHW20) Battery ECU on a **ZombieVerter VCU V1.3**.
 
-OEM NiMH pack and Battery ECU are gone. Energy store is 3 × BMW Gen 1 PHEV 16s modules (48s, 26 Ah). OEM SMRs, precharge and Hall current sensor stay; this firmware does **not** drive the contactors.
+This software enables the use of 3 × BMW Gen 1 PHEV 16s modules (48s, 26 Ah) as the hybrid battery in a Gen 2 Toyota Prius car.
 
-Same stack as [Stm32-vcu](https://github.com/damienmaguire/Stm32-vcu): libopencm3 + libopeninv, Code::Blocks `stm32_betty.cbp`, ESP8266 web UI on USART3.
+PHEV fuction via a Prius Plug-In OBC G9090-47040 in progress.
 
-Live car: Ready, EV creep, engine fire. IGCT power. Drive modes on the web page.
+Work in progress as of Sept 2026.
+
+CAUTION : THIS FIRMWARE IS ALMOST ENTIRELY AI WRITTEN AND HAS NOT AS YET BEEN ROAD TESTED.
+
+Provides various drive modes on the web interface.
 
 ## Buses
 
@@ -17,7 +21,6 @@ Live car: Ready, EV creep, engine fire. IGCT power. Drive modes on the web page.
 | GP_analog1 (PC2) | — | Prius Hall after 1k/1k on V1.3 |
 | USART3 | 115200 | OpenInverter terminal + ESP web |
 
-Do not put Prius frames on CAN2 or CSC frames on CAN1.
 
 ## Drive modes (ESP page, category Drive Mode)
 
@@ -28,9 +31,6 @@ Do not put Prius frames on CAN2 or CSC frames on CAN1.
 | 2 EV | Report `evspoof` (~60 %) and keep CCL ≥ 60 so the EV button is allowed |
 | 3 Range | CDL = 0 — force the engine |
 
-Health veto always wins (`umin` / `umax` / missing CSC after `bootgrace`). No engine-CAN MITM. Speed cap is still the HV ECU's.
-
-`packvhold` (default 181 V) is what is published until all 48 cells are in. Do not boot on 188 if the pack is ~181 — IGCT + that step sets P3004.
 
 ## Build
 
@@ -70,6 +70,6 @@ USART3 115200: `get udc`, `set packvhold 181`, `save`, `json`, `list`.
 
 ## Status (2026-09-11)
 
-Firmware v4. Pack in, IGCT Ready, no triangle. Prius Plug-In OBC G9090-47040 on order — not in this tree yet.
+Firmware v4. Pack in, IGCT Ready, no triangle.
 
 GPL-3.0, same as OpenInverter / Zombie.
