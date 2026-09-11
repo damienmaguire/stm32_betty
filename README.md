@@ -46,12 +46,7 @@ make
 
 Flash like any Zombie. Linker origin is **0x08001000** (OpenInverter bootloader):
 
-```bash
-openocd -f interface/stlink.cfg -f target/stm32f1x.cfg \
-  -c "program stm32_betty.bin 0x08001000 verify reset exit"
-```
-
-Or the ESP web updater / CubeProgrammer. Open `stm32_betty.cbp` in Code::Blocks (ARM GCC). Target STM32F107 just runs `make`. Needs `-DSTM32F1` or CB will not see F1 headers.
+Or the ESP web updater / CubeProgrammer.
 
 ## Wiring (V1.3)
 
@@ -61,13 +56,6 @@ Or the ESP web updater / CubeProgrammer. Open `stm32_betty.cbp` in Code::Blocks 
 - Board 12 V from IGCT (or parked 12 V). Sleep-override jumper fitted
 - `CANEN` / `CANSBY` driven in firmware
 
-## Web / console
-
-Stock ESP firmware. `save` after param changes.
-
-Spots: `udc` `idc` `soc` `socreal` `sococv` `socah` `umin` `umax` `tmpmin` `tmpmax` `mods` `fault` `cells` `ibadc` `ibpin`
-
-USART3 115200: `get udc`, `set packvhold 181`, `save`, `json`, `list`.
 
 ## Status (2026-09-11)
 
