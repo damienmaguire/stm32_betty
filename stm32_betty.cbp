@@ -3,6 +3,7 @@
 	<FileVersion major="1" minor="6" />
 	<Project>
 		<Option title="stm32_betty" />
+		<Option makefile_is_custom="1" />
 		<Option pch_mode="2" />
 		<Option compiler="armelfgcc" />
 		<Build>
@@ -22,13 +23,11 @@
 					<Clean command="make clean" />
 					<DistClean command="make clean" />
 					<AskRebuildNeeded command="$make -q" />
-					<SilentBuild command="make > $(CMD_NULL)" />
+					<SilentBuild command="make &gt; $(CMD_NULL)" />
 				</MakeCommands>
 			</Target>
 		</Build>
-		<Unit filename="Makefile">
-			<Option target="STM32F107" />
-		</Unit>
+		<Unit filename="Makefile" />
 		<Unit filename="include/anain_prj.h" />
 		<Unit filename="include/bmw_crc.h" />
 		<Unit filename="include/digio_prj.h" />
@@ -40,8 +39,6 @@
 		<Unit filename="src/hwinit.cpp" />
 		<Unit filename="src/stm32_betty.cpp" />
 		<Unit filename="src/terminal_prj.cpp" />
-		<Extensions>
-			<code_completion />
-		</Extensions>
+		<Extensions />
 	</Project>
 </CodeBlocks_project_file>

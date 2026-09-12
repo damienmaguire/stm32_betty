@@ -11,7 +11,8 @@
 #define CAT_BMS   "Battery"
 #define CAT_MODE  "Drive Mode"
 
-#define DRVMODES  "0=Hold, 1=CD, 2=EV, 3=Range"
+#define DRVMODES  "0=Hold, 1=CD, 2=EV, 3=Range, 4=Charge"
+#define OPMODES   "0=Off, 1=Hold, 2=CD, 3=EV, 4=Range, 5=Charge"
 #define ONOFF     "0=Off, 1=On, 2=na"
 
 #define PARAM_LIST                                                             \
@@ -27,12 +28,14 @@
   PARAM_ENTRY(CAT_BMS, ccl, "A", 0, 200, 60, 10)                               \
   PARAM_ENTRY(CAT_BMS, packvhold, "V", 160, 210, 181, 17)                      \
   PARAM_ENTRY(CAT_SETUP, UseRS232, ONOFF, 0, 1, 0, 11)                         \
-  PARAM_ENTRY(CAT_MODE, mode, DRVMODES, 0, 3, 0, 12)                           \
+  PARAM_ENTRY(CAT_MODE, mode, DRVMODES, 0, 4, 0, 12)                           \
   PARAM_ENTRY(CAT_MODE, cdfloor, "%", 10, 50, 25, 13)                          \
   PARAM_ENTRY(CAT_MODE, cdspoof, "%", 60, 80, 74, 14)                          \
   PARAM_ENTRY(CAT_MODE, evspoof, "%", 50, 70, 60, 15)                          \
   PARAM_ENTRY(CAT_MODE, bootgrace, "ms", 0, 10000, 4000, 16)                   \
-  VALUE_ENTRY(opmode, "", 2000)                                                \
+  PARAM_ENTRY(CAT_MODE, chargespoof, "%", 30, 50, 40, 18)                      \
+  PARAM_ENTRY(CAT_MODE, chargeceil, "%", 50, 95, 80, 19)                       \
+  VALUE_ENTRY(opmode, OPMODES, 2000)                                           \
   VALUE_ENTRY(udc, "V", 2001)                                                  \
   VALUE_ENTRY(idc, "A", 2002)                                                  \
   VALUE_ENTRY(soc, "%", 2003)                                                  \
@@ -47,10 +50,12 @@
   VALUE_ENTRY(fault, "hex", 2012)                                              \
   VALUE_ENTRY(uaux, "V", 2013)                                                 \
   VALUE_ENTRY(ibadc, "dig", 2014)                                              \
-  VALUE_ENTRY(ibpin, "V", 2015)                                                \
+  VALUE_ENTRY(ibpin, "V", 2015)                                                 \
   VALUE_ENTRY(cpuload, "%", 2016)                                              \
-  VALUE_ENTRY(version, "", 2017)                                               \
-  VALUE_ENTRY(uptime, "sec", 2018)                                             \
-  VALUE_ENTRY(cells, "", 2019)
+  VALUE_ENTRY(version, "", 2017)                                                \
+  VALUE_ENTRY(uptime, "sec", 2018)                                              \
+  VALUE_ENTRY(cells, "", 2019)                                                 \
+  VALUE_ENTRY(deltav, "V", 2020)                                               \
+  VALUE_ENTRY(power, "kW", 2021)
 
 #endif

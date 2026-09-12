@@ -1,5 +1,4 @@
-/*NOTE : THIS FIRMWARE IS ALMOST ENTIRELY AI GENERATED. TREAT IT WITH CAUTION!!!
- *
+/*
  * stm32_betty — Gen 2 Prius Battery ECU on ZombieVerter VCU V1.3
  *
  * CAN1 500 k: Prius 0x03B / 0x3C9 / 0x3CB / 0x3CD / 0x4D1
@@ -8,8 +7,7 @@
  *
  * ESP8266 web UI on the VCU shows PARAM / VALUE list over USART3.
  *
- * v3: boot grace + never publish partial/zero packV
- *     Drive Mode param (Hold / CD / EV / Range)
+ * v5: Charge mode — low SOC spoof so HV ECU engine-charges in Park
  */
 #include "anain.h"
 #include "bmw_crc.h"
@@ -46,7 +44,8 @@ enum DriveMode {
   MODE_HOLD = 0,
   MODE_CD = 1,
   MODE_EV = 2,
-  MODE_RANGE = 3
+  MODE_RANGE = 3,
+  MODE_CHARGE = 4
 };
 
 static Stm32Scheduler *scheduler;
@@ -68,7 +67,7 @@ static uint8_t cellsSeen = 0;
 static uint16_t faultWord = 0;
 static float socAh = 15.6f, socReal = 60, socOcv = 60;
 static bool socSeeded = false;
-static uint32_t tRest = 0, tBorn = 0, bootMs = 0;
+static uint32_t tRest = 0, tBorn = 0, bootMs = 0, lastPriusRx = 0;
 static uint8_t nextmes = 0, mescycle = 0;
 static uint32_t uptimeSec = 0;
 
@@ -240,6 +239,11 @@ static uint8_t socToReport() {
   }
   if (mode == MODE_EV)
     return (uint8_t)(Param::GetFloat(Param::evspoof) + 0.5f);
+  if (mode == MODE_CHARGE) {
+    if (socReal >= Param::GetFloat(Param::chargeceil))
+      return holdSpoof();
+    return (uint8_t)(Param::GetFloat(Param::chargespoof) + 0.5f);
+  }
   /* HOLD and RANGE use the 50–70 map */
   return holdSpoof();
 }
@@ -275,6 +279,11 @@ static void limitsFromHealth(uint8_t &cdl, uint8_t &ccl) {
       ccl = 60;
     if (mode == MODE_RANGE)
       cdl = 0;
+    if (mode == MODE_CHARGE) {
+      cdl = 0;
+      if (socReal >= Param::GetFloat(Param::chargeceil))
+        ccl = 0;
+    }
   }
 }
 
@@ -398,6 +407,18 @@ static bool CscRx(uint32_t canId, uint32_t *data, uint8_t dlc) {
 }
 static void CscClear() {}
 
+static bool PriusRx(uint32_t /*canId*/, uint32_t * /*data*/, uint8_t /*dlc*/) {
+  lastPriusRx = nowMs();
+  return false;
+}
+static void PriusClear() {}
+
+static bool carAwake() {
+  if (lastPriusRx == 0)
+    return false;
+  return (nowMs() - lastPriusRx) < 1000;
+}
+
 static void publish() {
   Param::SetFloat(Param::udc, packV);
   Param::SetFloat(Param::idc, packA);
@@ -407,13 +428,22 @@ static void publish() {
   Param::SetFloat(Param::socah, socAh);
   Param::SetFloat(Param::umin, minCell);
   Param::SetFloat(Param::umax, maxCell);
+  float dv = 0;
+  if (minCell > 0.5f && maxCell > minCell)
+    dv = maxCell - minCell;
+  Param::SetFloat(Param::deltav, dv);
   Param::SetFloat(Param::tmpmin, tMin);
   Param::SetFloat(Param::tmpmax, tMax);
   Param::SetInt(Param::mods, modulesSeen);
   Param::SetInt(Param::fault, faultWord);
   Param::SetInt(Param::cells, cellsSeen);
-  Param::SetInt(Param::version, 4);
+  Param::SetInt(Param::version, 8);
+  Param::SetFloat(Param::power, packV * packA / 1000.0f);
   Param::SetInt(Param::uptime, (int)uptimeSec);
+  if (carAwake())
+    Param::SetInt(Param::opmode, Param::GetInt(Param::mode) + 1);
+  else
+    Param::SetInt(Param::opmode, 0);
   float uaux = AnaIn::uaux.Get() * (3.3f / 4095.0f) * 9.2f; // typical zombie scale-ish
   Param::SetFloat(Param::uaux, uaux);
 }
@@ -455,6 +485,12 @@ extern "C" void tim4_isr(void) { scheduler->Run(); }
 void Param::Change(Param::PARAM_NUM /*paramNum*/) {}
 
 static void SetCanFilters() {
+  /* CAN1 first. RegisterUserMessage on CAN1 calls ConfigureFilters which
+   * does CAN_FA1R(CAN1)=0 and wipes the shared F107 filter banks. CSC last. */
+  priusCan->RegisterUserMessage(0x038);
+  priusCan->RegisterUserMessage(0x348);
+  priusCan->RegisterUserMessage(0x529);
+
   cscCan->RegisterUserMessage(0x122);
   cscCan->RegisterUserMessage(0x132);
   cscCan->RegisterUserMessage(0x142);
@@ -519,8 +555,10 @@ int main(void) {
   CanMap cm(&can0);
   TerminalCommands::SetCanMap(&cm);
 
-  FunctionPointerCallback cb(CscRx, CscClear);
-  can1.AddCallback(&cb);
+  FunctionPointerCallback cbCsc(CscRx, CscClear);
+  can1.AddCallback(&cbCsc);
+  FunctionPointerCallback cbPrius(PriusRx, PriusClear);
+  can0.AddCallback(&cbPrius);
   SetCanFilters();
 
   packV = Param::GetFloat(Param::packvhold);
