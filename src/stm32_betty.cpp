@@ -34,6 +34,11 @@
 
 extern const TERM_CMD TermCmds[];
 
+extern "C" void __cxa_pure_virtual()
+{
+    while (1);
+}
+
 #define CELLS_PER_MOD 16
 #define NMOD 3
 #define ADDR0 2
