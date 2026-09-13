@@ -1,6 +1,10 @@
 /*
  * Clock / NVIC / USART bring-up for ZombieVerter V1.3 (STM32F107).
  * Trimmed from stm32-vcu hwinit — no GS450H / SPI3 / PWM gauges.
+ *
+ * TIM3 CH1/CH2 on PA6/PA7 = Zombie PWM1/PWM2
+ *   CH1 (PA6) CHRQ  — 10 Hz, 0 % or 100 %
+ *   CH2 (PA7) CHPW  — 10 Hz, duty = chpwdty
  */
 #include "hwinit.h"
 #include "hwdefs.h"
@@ -24,6 +28,7 @@ void clock_setup(void) {
   rcc_periph_clock_enable(RCC_GPIOD);
   rcc_periph_clock_enable(RCC_GPIOE);
   rcc_periph_clock_enable(RCC_USART3);
+  rcc_periph_clock_enable(RCC_TIM3);
   rcc_periph_clock_enable(RCC_TIM4);
   rcc_periph_clock_enable(RCC_DMA1);
   rcc_periph_clock_enable(RCC_ADC1);
@@ -38,7 +43,25 @@ void usart1_setup(void) {}
 void usart2_setup(void) {}
 void tim_setup(void) {}
 void tim2_setup(void) {}
-void tim3_setup(void) {}
+
+void tim3_setup(void) {
+  /* 72 MHz timer clock / 7200 = 10 kHz tick. ARR 999 → 10 Hz. */
+  gpio_set_mode(GPIOA, GPIO_MODE_OUTPUT_50_MHZ,
+                GPIO_CNF_OUTPUT_ALTFN_PUSHPULL, GPIO6 | GPIO7);
+
+  timer_disable_counter(TIM3);
+  timer_set_mode(TIM3, TIM_CR1_CKD_CK_INT, TIM_CR1_CMS_EDGE, TIM_CR1_DIR_UP);
+  timer_set_prescaler(TIM3, 7199);
+  timer_set_period(TIM3, 999);
+  timer_set_oc_mode(TIM3, TIM_OC1, TIM_OCM_PWM1);
+  timer_set_oc_mode(TIM3, TIM_OC2, TIM_OCM_PWM1);
+  timer_enable_oc_output(TIM3, TIM_OC1);
+  timer_enable_oc_output(TIM3, TIM_OC2);
+  timer_set_oc_value(TIM3, TIM_OC1, 0);
+  timer_set_oc_value(TIM3, TIM_OC2, 0);
+  timer_enable_counter(TIM3);
+}
+
 void spi2_setup(void) {}
 void spi3_setup(void) {}
 

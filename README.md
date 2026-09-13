@@ -1,12 +1,10 @@
-
 # stm32_betty
 
 Gen 2 Prius (NHW20) Battery ECU on a **ZombieVerter VCU V1.3**.
 
 This software enables the use of 3 × BMW Gen 1 PHEV 16s modules (48s, 26 Ah) as the hybrid battery in a Gen 2 Toyota Prius car.
 
-PHEV fuction via a Prius Plug-In OBC G9090-47040 in progress.
-<img width="4096" height="2304" alt="install1" src="https://github.com/user-attachments/assets/946d591c-aa74-4281-bf0a-96033d6b8194" />
+PHEV function via a Prius Plug-In OBC G9090-47040 is on branch **PHEV_Testing**.
 Work in progress as of Sept 2026.
 
 CAUTION : THIS FIRMWARE IS ALMOST ENTIRELY AI WRITTEN AND HAS NOT AS YET BEEN ROAD TESTED.
@@ -22,7 +20,6 @@ Provides various drive modes on the web interface.
 | GP_analog1 (PC2) | — | Prius Hall after 1k/1k on V1.3 |
 | USART3 | 115200 | OpenInverter terminal + ESP web |
 
-
 ## Drive modes (ESP page, category Drive Mode)
 
 | `mode` | What the HV ECU is told |
@@ -31,34 +28,39 @@ Provides various drive modes on the web interface.
 | 1 CD | Report `cdspoof` (~74 %) until `socreal` ≤ `cdfloor`, then Hold |
 | 2 EV | Report `evspoof` (~60 %) and keep CCL ≥ 60 so the EV button is allowed |
 | 3 Range | CDL = 0 — force the engine |
-<img width="480" height="270" alt="menu" src="https://github.com/user-attachments/assets/ce7d0923-890b-4280-933f-540aae5649c6" />
+| 4 Charge | Engine-on Park charge via SOC lie |
+
+## PHEV_Testing — G9090-47040 baseline
+
+`vehmode` = Hybrid (default, charger pins idle) or PHEV (charger code runs).
+`chg` must also be On, CPLT present, pack healthy, `udc` < `Voltspnt`, `umax` < 4.00 V.
+
+| OBC | Zombie V1.3 | MCU |
+|---|---|---|
+| CHRQ | PWM1 | PA6 TIM3_CH1 10 Hz, 0 or 100 % |
+| CHPW | PWM2 | PA7 TIM3_CH2 10 Hz, duty = `chpwdty` |
+| CHST | brake in | PA15 digital (PWM capture later) |
+| VCHG | analog 2 | PC3, `obc_udc` = pin × `vchgscale` |
+| CPLT | start in | PD7 after external pilot circuit, polarity `cpltpol` |
+
+Pins can move once the unit is on the bench. Do not drive SMRs. Fuse DCHB (DC+). First evening is IGCT + earth + EVSE, no HV pair.
 
 ## Build
 
 ```bash
 sudo apt install gcc-arm-none-eabi
-git clone --recurse-submodules https://github.com/damienmaguire/stm32_betty.git
+git clone --recurse-submodules -b PHEV_Testing https://github.com/damienmaguire/stm32_betty.git
 cd stm32_betty
 make
 ```
 
-`make` runs `get-deps`: initialises the libopencm3 / libopeninv submodules (or clones them if you grabbed a zip) and builds `libopencm3` for STM32F1.
-
-Flash like any Zombie. Linker origin is **0x08001000** (OpenInverter bootloader):
-
-Or the ESP web updater / CubeProgrammer.
+Flash like any Zombie. Linker origin is **0x08001000**.
 
 ## Wiring (V1.3)
 
 - Prius hybrid CAN → CAN1
-- CSC loom (Yel/Brn + Yel/Red, 5 V + GND) → CAN2
-- Hall yellow after 1k/1k → GP analog 1. Rest `ibpin` ≈ 1.21–1.25 V
-- Board 12 V from IGCT (or parked 12 V). Sleep-override jumper fitted
-- `CANEN` / `CANSBY` driven in firmware
-
-
-## Status (2026-09-11)
-
-Firmware v4. Pack in, IGCT Ready, no triangle.
+- CSC loom → CAN2
+- Hall yellow after 1k/1k → GP analog 1
+- Board 12 V from IGCT. Sleep-override jumper fitted
 
 GPL-3.0, same as OpenInverter / Zombie.
