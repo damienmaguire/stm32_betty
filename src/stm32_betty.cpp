@@ -7,7 +7,7 @@
  *
  * ESP8266 web UI on the VCU shows PARAM / VALUE list over USART3.
  *
- * v5: Charge mode — low SOC spoof so HV ECU engine-charges in Park
+ * v9 / PHEV_Testing: G9090-47040 baseline (CHRQ/CHPW/CHST/VCHG/CPLT)
  */
 #include "anain.h"
 #include "bmw_crc.h"
@@ -28,6 +28,7 @@
 #include <libopencm3/stm32/usart.h>
 #include <libopencm3/stm32/iwdg.h>
 #include <libopencm3/stm32/gpio.h>
+#include <libopencm3/stm32/timer.h>
 #include <math.h>
 #include <string.h>
 #include "canmap.h"
@@ -52,6 +53,15 @@ enum DriveMode {
   MODE_RANGE = 3,
   MODE_CHARGE = 4
 };
+
+enum VehMode { VEH_HYBRID = 0, VEH_PHEV = 1 };
+enum ObcStat { OBC_IDLE = 0, OBC_WAIT = 1, OBC_RUN = 2, OBC_STOP = 3, OBC_FAULT = 4 };
+
+#define OBC_PWM_ARR 999
+
+static uint8_t obcStat = OBC_IDLE;
+static uint8_t obcChrq = 0, obcChpw = 0, obcChst = 0, obcCplt = 0;
+static float obcUdc = 0;
 
 static Stm32Scheduler *scheduler;
 static CanHardware *priusCan;
@@ -424,6 +434,65 @@ static bool carAwake() {
   return (nowMs() - lastPriusRx) < 1000;
 }
 
+static void obcPwm(uint8_t chrqOn, uint8_t dutyPct) {
+  if (dutyPct > 100)
+    dutyPct = 100;
+  timer_set_oc_value(TIM3, TIM_OC1, chrqOn ? (OBC_PWM_ARR + 1) : 0);
+  timer_set_oc_value(TIM3, TIM_OC2, (uint32_t)dutyPct * (OBC_PWM_ARR + 1) / 100);
+  obcChrq = chrqOn;
+  obcChpw = dutyPct;
+}
+
+static bool packAllowsCharge() {
+  if (cellsSeen < CELLS_PACK)
+    return false;
+  if (faultWord != 0)
+    return false;
+  if (maxCell >= 4.00f)
+    return false;
+  if (packV >= Param::GetFloat(Param::Voltspnt))
+    return false;
+  if (socReal >= Param::GetFloat(Param::chargeceil))
+    return false;
+  return true;
+}
+
+static void serviceObc() {
+  uint16_t raw = AnaIn::GP_analog2.Get();
+  float vpin = raw * (3.3f / 4095.0f);
+  obcUdc = vpin * Param::GetFloat(Param::vchgscale);
+
+  obcChst = DigIo::brake_in.Get() ? 1 : 0;
+  uint8_t rawCplt = DigIo::start_in.Get() ? 1 : 0;
+  if (Param::GetInt(Param::cpltpol) == 0)
+    rawCplt = rawCplt ? 0 : 1;
+  obcCplt = rawCplt;
+
+  if (Param::GetInt(Param::vehmode) != VEH_PHEV) {
+    obcPwm(0, 0);
+    obcStat = OBC_IDLE;
+    return;
+  }
+
+  if (!Param::GetInt(Param::chg) || !packAllowsCharge()) {
+    obcPwm(0, 0);
+    obcStat = packAllowsCharge() ? OBC_STOP : OBC_FAULT;
+    if (!Param::GetInt(Param::chg))
+      obcStat = OBC_IDLE;
+    return;
+  }
+
+  if (!obcCplt) {
+    obcPwm(0, 0);
+    obcStat = OBC_WAIT;
+    return;
+  }
+
+  uint8_t duty = (uint8_t)Param::GetInt(Param::chpwdty);
+  obcPwm(1, duty);
+  obcStat = OBC_RUN;
+}
+
 static void publish() {
   Param::SetFloat(Param::udc, packV);
   Param::SetFloat(Param::idc, packA);
@@ -442,8 +511,14 @@ static void publish() {
   Param::SetInt(Param::mods, modulesSeen);
   Param::SetInt(Param::fault, faultWord);
   Param::SetInt(Param::cells, cellsSeen);
-  Param::SetInt(Param::version, 8);
+  Param::SetInt(Param::version, 9);
   Param::SetFloat(Param::power, packV * packA / 1000.0f);
+  Param::SetInt(Param::obcstat, obcStat);
+  Param::SetFloat(Param::obc_udc, obcUdc);
+  Param::SetInt(Param::chst, obcChst);
+  Param::SetInt(Param::cplt, obcCplt);
+  Param::SetInt(Param::chrq, obcChrq);
+  Param::SetInt(Param::chpw, obcChpw);
   Param::SetInt(Param::uptime, (int)uptimeSec);
   if (carAwake())
     Param::SetInt(Param::opmode, Param::GetInt(Param::mode) + 1);
@@ -474,6 +549,7 @@ static void Ms100Task() {
   tx3CB();
   tx3CD();
   tx3C9();
+  serviceObc();
   publish();
   if (scheduler)
     Param::SetFloat(Param::cpuload, scheduler->GetCpuLoad() / 10.0f);
@@ -498,13 +574,13 @@ static void SetCanFilters() {
 
   cscCan->RegisterUserMessage(0x122);
   cscCan->RegisterUserMessage(0x132);
+  cscCan->RegisterUserMessage(0x143);
   cscCan->RegisterUserMessage(0x142);
   cscCan->RegisterUserMessage(0x152);
   cscCan->RegisterUserMessage(0x162);
   cscCan->RegisterUserMessage(0x172);
   cscCan->RegisterUserMessage(0x123);
   cscCan->RegisterUserMessage(0x133);
-  cscCan->RegisterUserMessage(0x143);
   cscCan->RegisterUserMessage(0x153);
   cscCan->RegisterUserMessage(0x163);
   cscCan->RegisterUserMessage(0x173);
@@ -531,6 +607,7 @@ int main(void) {
   nvic_setup();
   DIG_IO_CONFIGURE(DIG_IO_LIST);
   ANA_IN_CONFIGURE(ANA_IN_LIST);
+  tim3_setup();
 
   for (int i = 0; i < 16; i++) {
     DigIo::led_out.Toggle();
@@ -566,6 +643,7 @@ int main(void) {
   can0.AddCallback(&cbPrius);
   SetCanFilters();
 
+  obcPwm(0, 0);
   packV = Param::GetFloat(Param::packvhold);
   packA = 0;
   faultWord = 0;
