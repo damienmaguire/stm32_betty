@@ -4,7 +4,7 @@
 #ifndef PARAM_PRJ_H_INCLUDED
 #define PARAM_PRJ_H_INCLUDED
 
-#define VER 3.02
+#define VER 10
 
 #define CAT_SETUP "General Setup"
 #define CAT_SENS  "Current Sensor"
