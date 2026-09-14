@@ -7,7 +7,7 @@
  *
  * ESP8266 web UI on the VCU shows PARAM / VALUE list over USART3.
  *
- * v5: Charge mode — low SOC spoof so HV ECU engine-charges in Park
+ * v10: Charge mode — low SOC spoof so HV ECU engine-charges in Park
  */
 #include "anain.h"
 #include "bmw_crc.h"
@@ -65,6 +65,7 @@ struct CellMod {
 };
 static CellMod mods[NMOD];
 
+static float lastGoodV = 0;
 static float packV = PACKV_HOLD_FALLBACK, packA = 0, minCell = 0, maxCell = 0;
 static float tMin = 25, tMax = 25;
 static uint8_t modulesSeen = 0;
@@ -151,7 +152,7 @@ static void updatePackFromCsc() {
   for (int m = 0; m < NMOD; m++) {
     if (!mods[m].exists)
       continue;
-    if (now - mods[m].lastMs > 2000) {
+    if (now - mods[m].lastMs > 5000) {
       mods[m].exists = false;
       continue;
     }
@@ -171,6 +172,8 @@ static void updatePackFromCsc() {
       float tp = mods[m].temp[t];
       if (tp <= -39)
         continue;
+      if (tp >= 54.5f && tp <= 55.5f) /* unused CSC thermistor byte */
+        continue;
       if (tp < tmn)
         tmn = tp;
       if (tp > tmx)
@@ -181,10 +184,15 @@ static void updatePackFromCsc() {
   cellsSeen = cells;
   minCell = (cmin < 5) ? cmin : 0;
   maxCell = cmax;
-  if (cells >= CELLS_PACK && sumV > 20.0f)
+  if (cells >= CELLS_PACK && sumV > 20.0f) {
     packV = sumV;
-  else
+    lastGoodV = sumV;
+    Param::SetFloat(Param::packvhold, sumV);
+  } else if (lastGoodV > 20.0f) {
+    packV = lastGoodV;
+  } else {
     packV = Param::GetFloat(Param::packvhold);
+  }
   if (tmn < 200)
     tMin = tmn;
   if (tmx > -100)
@@ -400,7 +408,8 @@ static void handleBmw(uint32_t canId, uint32_t data[2], uint8_t /*dlc*/) {
         mods[slot].cell[idx] = mv * 0.001f;
     }
   }
-  if (mid == 8 || mid == 0) {
+  /* 0x182–184 only. mid==0 also matches 0x102 heartbeat and 0x202 status. */
+  if (canId >= 0x182 && canId <= 0x184) {
     for (int i = 0; i < 4; i++)
       mods[slot].temp[i] = (float)b[i] - 40.0f;
   }
@@ -442,7 +451,7 @@ static void publish() {
   Param::SetInt(Param::mods, modulesSeen);
   Param::SetInt(Param::fault, faultWord);
   Param::SetInt(Param::cells, cellsSeen);
-  Param::SetInt(Param::version, 8);
+  Param::SetInt(Param::version, VER);
   Param::SetFloat(Param::power, packV * packA / 1000.0f);
   Param::SetInt(Param::uptime, (int)uptimeSec);
   if (carAwake())
