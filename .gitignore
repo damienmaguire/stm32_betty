@@ -10,3 +10,4 @@ stm32_betty
 .DS_Store
 *~
 *.bak
+stm32_betty.layout
