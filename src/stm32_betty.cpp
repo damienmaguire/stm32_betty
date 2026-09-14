@@ -7,7 +7,7 @@
  *
  * ESP8266 web UI on the VCU shows PARAM / VALUE list over USART3.
  *
- * v10 / PHEV_Testing: lastGoodV + CSC temps 0x182-184 + G9090-47040 pins
+ * v11 / PHEV_Testing: lastGoodV + CSC temps 0x182-184 + G9090-47040 pins
  */
 #include "anain.h"
 #include "bmw_crc.h"
