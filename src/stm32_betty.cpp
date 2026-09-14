@@ -7,7 +7,7 @@
  *
  * ESP8266 web UI on the VCU shows PARAM / VALUE list over USART3.
  *
- * v9 / PHEV_Testing: G9090-47040 baseline (CHRQ/CHPW/CHST/VCHG/CPLT)
+ * v10 / PHEV_Testing: lastGoodV + CSC temps 0x182-184 + G9090-47040 pins
  */
 #include "anain.h"
 #include "bmw_crc.h"
@@ -75,7 +75,7 @@ struct CellMod {
 };
 static CellMod mods[NMOD];
 
-static float packV = PACKV_HOLD_FALLBACK, packA = 0, minCell = 0, maxCell = 0;
+static float packV = PACKV_HOLD_FALLBACK, lastGoodV = 0, packA = 0, minCell = 0, maxCell = 0;
 static float tMin = 25, tMax = 25;
 static uint8_t modulesSeen = 0;
 static uint8_t cellsSeen = 0;
@@ -161,7 +161,7 @@ static void updatePackFromCsc() {
   for (int m = 0; m < NMOD; m++) {
     if (!mods[m].exists)
       continue;
-    if (now - mods[m].lastMs > 2000) {
+    if (now - mods[m].lastMs > 5000) {
       mods[m].exists = false;
       continue;
     }
@@ -181,6 +181,8 @@ static void updatePackFromCsc() {
       float tp = mods[m].temp[t];
       if (tp <= -39)
         continue;
+      if (tp >= 54.5f && tp <= 55.5f) /* unused CSC thermistor byte */
+        continue;
       if (tp < tmn)
         tmn = tp;
       if (tp > tmx)
@@ -191,10 +193,15 @@ static void updatePackFromCsc() {
   cellsSeen = cells;
   minCell = (cmin < 5) ? cmin : 0;
   maxCell = cmax;
-  if (cells >= CELLS_PACK && sumV > 20.0f)
+  if (cells >= CELLS_PACK && sumV > 20.0f) {
     packV = sumV;
-  else
+    lastGoodV = sumV;
+    Param::SetFloat(Param::packvhold, sumV);
+  } else if (lastGoodV > 20.0f) {
+    packV = lastGoodV;
+  } else {
     packV = Param::GetFloat(Param::packvhold);
+  }
   if (tmn < 200)
     tMin = tmn;
   if (tmx > -100)
@@ -410,7 +417,8 @@ static void handleBmw(uint32_t canId, uint32_t data[2], uint8_t /*dlc*/) {
         mods[slot].cell[idx] = mv * 0.001f;
     }
   }
-  if (mid == 8 || mid == 0) {
+  /* 0x182–184 only. mid==0 also matches 0x102 heartbeat and 0x202 status. */
+  if (canId >= 0x182 && canId <= 0x184) {
     for (int i = 0; i < 4; i++)
       mods[slot].temp[i] = (float)b[i] - 40.0f;
   }
@@ -511,7 +519,7 @@ static void publish() {
   Param::SetInt(Param::mods, modulesSeen);
   Param::SetInt(Param::fault, faultWord);
   Param::SetInt(Param::cells, cellsSeen);
-  Param::SetInt(Param::version, 9);
+  Param::SetInt(Param::version, VER);
   Param::SetFloat(Param::power, packV * packA / 1000.0f);
   Param::SetInt(Param::obcstat, obcStat);
   Param::SetFloat(Param::obc_udc, obcUdc);
@@ -524,7 +532,7 @@ static void publish() {
     Param::SetInt(Param::opmode, Param::GetInt(Param::mode) + 1);
   else
     Param::SetInt(Param::opmode, 0);
-  float uaux = AnaIn::uaux.Get() * (3.3f / 4095.0f) * 9.2f; // typical zombie scale-ish
+  float uaux = AnaIn::uaux.Get() * (3.3f / 4095.0f) * 9.2f;
   Param::SetFloat(Param::uaux, uaux);
 }
 
@@ -566,21 +574,19 @@ extern "C" void tim4_isr(void) { scheduler->Run(); }
 void Param::Change(Param::PARAM_NUM /*paramNum*/) {}
 
 static void SetCanFilters() {
-  /* CAN1 first. RegisterUserMessage on CAN1 calls ConfigureFilters which
-   * does CAN_FA1R(CAN1)=0 and wipes the shared F107 filter banks. CSC last. */
   priusCan->RegisterUserMessage(0x038);
   priusCan->RegisterUserMessage(0x348);
   priusCan->RegisterUserMessage(0x529);
 
   cscCan->RegisterUserMessage(0x122);
   cscCan->RegisterUserMessage(0x132);
-  cscCan->RegisterUserMessage(0x143);
   cscCan->RegisterUserMessage(0x142);
   cscCan->RegisterUserMessage(0x152);
   cscCan->RegisterUserMessage(0x162);
   cscCan->RegisterUserMessage(0x172);
   cscCan->RegisterUserMessage(0x123);
   cscCan->RegisterUserMessage(0x133);
+  cscCan->RegisterUserMessage(0x143);
   cscCan->RegisterUserMessage(0x153);
   cscCan->RegisterUserMessage(0x163);
   cscCan->RegisterUserMessage(0x173);
@@ -656,7 +662,6 @@ int main(void) {
   s.AddTask(Ms1000Task, 1000);
 
   while (1) {
-    //iwdg_reset();
     t.Run();
   }
 }
