@@ -7,7 +7,8 @@
  *
  * ESP8266 web UI on the VCU shows PARAM / VALUE list over USART3.
  *
- * v11 / PHEV_Testing: lastGoodV + CSC temps 0x182-184 + G9090-47040 pins
+ * v12 / PHEV_Testing: VCHG=throttle1 PC0, ICHG=throttle2 PC1,
+ * CHST duty on brake PA15 (1 ms window)
  */
 #include "anain.h"
 #include "bmw_crc.h"
@@ -61,7 +62,8 @@ enum ObcStat { OBC_IDLE = 0, OBC_WAIT = 1, OBC_RUN = 2, OBC_STOP = 3, OBC_FAULT 
 
 static uint8_t obcStat = OBC_IDLE;
 static uint8_t obcChrq = 0, obcChpw = 0, obcChst = 0, obcCplt = 0;
-static float obcUdc = 0;
+static float obcUdc = 0, obcIdc = 0;
+static uint8_t chstHigh = 0, chstN = 0, chstDuty = 0;
 
 static Stm32Scheduler *scheduler;
 static CanHardware *priusCan;
@@ -465,12 +467,42 @@ static bool packAllowsCharge() {
   return true;
 }
 
-static void serviceObc() {
-  uint16_t raw = AnaIn::GP_analog2.Get();
-  float vpin = raw * (3.3f / 4095.0f);
-  obcUdc = vpin * Param::GetFloat(Param::vchgscale);
+/* 1 ms sample of PA15. 100 samples = one 10 Hz CHST period. */
+static void sampleChst() {
+  if (DigIo::brake_in.Get())
+    chstHigh++;
+  if (++chstN >= 100) {
+    chstDuty = chstHigh;
+    chstHigh = 0;
+    chstN = 0;
+    if (chstDuty < 10)
+      obcChst = 0;
+    else if (chstDuty < 38)
+      obcChst = 1;
+    else if (chstDuty < 68)
+      obcChst = 2;
+    else
+      obcChst = 3;
+  }
+}
 
-  obcChst = DigIo::brake_in.Get() ? 1 : 0;
+/* Throttle 1/2 are 1k/1k. Reconstruct OBC volts, then subtract bench zeros. */
+static void readObcSense() {
+  float p1 = AnaIn::throttle1.Get() * (3.3f / 4095.0f);
+  float p2 = AnaIn::throttle2.Get() * (3.3f / 4095.0f);
+  Param::SetFloat(Param::vchgpin, p1);
+  Param::SetFloat(Param::ichgpin, p2);
+  float vchg = p1 * 2.0f;
+  float ichg = p2 * 2.0f;
+  obcUdc = (vchg - Param::GetFloat(Param::vchgzero)) * Param::GetFloat(Param::vchgscale);
+  if (obcUdc < 0)
+    obcUdc = 0;
+  obcIdc = (ichg - Param::GetFloat(Param::ichgzero)) * Param::GetFloat(Param::ichgscale);
+}
+
+static void serviceObc() {
+  readObcSense();
+
   uint8_t rawCplt = DigIo::start_in.Get() ? 1 : 0;
   if (Param::GetInt(Param::cpltpol) == 0)
     rawCplt = rawCplt ? 0 : 1;
@@ -479,6 +511,12 @@ static void serviceObc() {
   if (Param::GetInt(Param::vehmode) != VEH_PHEV) {
     obcPwm(0, 0);
     obcStat = OBC_IDLE;
+    return;
+  }
+
+  if (obcChst == 3) {
+    obcPwm(0, 0);
+    obcStat = OBC_FAULT;
     return;
   }
 
@@ -523,7 +561,9 @@ static void publish() {
   Param::SetFloat(Param::power, packV * packA / 1000.0f);
   Param::SetInt(Param::obcstat, obcStat);
   Param::SetFloat(Param::obc_udc, obcUdc);
+  Param::SetFloat(Param::obc_idc, obcIdc);
   Param::SetInt(Param::chst, obcChst);
+  Param::SetInt(Param::chstdty, chstDuty);
   Param::SetInt(Param::cplt, obcCplt);
   Param::SetInt(Param::chrq, obcChrq);
   Param::SetInt(Param::chpw, obcChpw);
@@ -538,6 +578,7 @@ static void publish() {
 
 static void Ms1Task() {
   millisCnt++;
+  sampleChst();
   static uint8_t div = 0;
   if (++div < 8)
     return;
