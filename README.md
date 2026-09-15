@@ -7,7 +7,10 @@ This software enables the use of 3 × BMW Gen 1 PHEV 16s modules (48s, 26 Ah) as
 
 PHEV fuction via a Prius Plug-In OBC G9090-47040 in progress.
 <img width="4096" height="2304" alt="install1" src="https://github.com/user-attachments/assets/946d591c-aa74-4281-bf0a-96033d6b8194" />
-Work in progress as of Sept 2026.
+
+Charger install in progress:
+<img width="4096" height="2304" alt="Charger_install" src="https://github.com/user-attachments/assets/0e64d244-3e0e-4bb7-903d-9873e2fe4f05" />
+
 
 CAUTION : THIS FIRMWARE IS ALMOST ENTIRELY AI WRITTEN AND HAS NOT AS YET BEEN ROAD TESTED.
 
