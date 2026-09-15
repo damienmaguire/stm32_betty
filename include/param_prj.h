@@ -4,7 +4,7 @@
 #ifndef PARAM_PRJ_H_INCLUDED
 #define PARAM_PRJ_H_INCLUDED
 
-#define VER 11
+#define VER 12
 
 #define CAT_SETUP "General Setup"
 #define CAT_SENS  "Current Sensor"
@@ -16,6 +16,7 @@
 #define OPMODES   "0=Off, 1=Hold, 2=CD, 3=EV, 4=Range, 5=Charge"
 #define VEHMODES  "0=Hybrid, 1=PHEV"
 #define OBCSTAT   "0=Idle, 1=WaitPilot, 2=Run, 3=Stop, 4=Fault"
+#define CHSTMODES "0=None, 1=Standby, 2=Ready, 3=Fault"
 #define ONOFF     "0=Off, 1=On, 2=na"
 #define POLARITY  "0=ActiveLow, 1=ActiveHigh"
 
@@ -44,7 +45,10 @@
   PARAM_ENTRY(CAT_CHG, Voltspnt, "V", 170, 210, 197, 22)                       \
   PARAM_ENTRY(CAT_CHG, chglim, "A", 0, 16, 8, 23)                              \
   PARAM_ENTRY(CAT_CHG, chpwdty, "%", 0, 100, 40, 24)                           \
-  PARAM_ENTRY(CAT_CHG, vchgscale, "V/V", 0, 100, 40, 25)                       \
+  PARAM_ENTRY(CAT_CHG, vchgzero, "V", 0, 5, 2.32, 27)                          \
+  PARAM_ENTRY(CAT_CHG, vchgscale, "V/V", 0, 200, 40, 25)                       \
+  PARAM_ENTRY(CAT_CHG, ichgzero, "V", 0, 5, 2.30, 28)                          \
+  PARAM_ENTRY(CAT_CHG, ichgscale, "A/V", 0, 20, 4, 29)                         \
   PARAM_ENTRY(CAT_CHG, cpltpol, POLARITY, 0, 1, 1, 26)                         \
   VALUE_ENTRY(opmode, OPMODES, 2000)                                           \
   VALUE_ENTRY(udc, "V", 2001)                                                  \
@@ -70,7 +74,11 @@
   VALUE_ENTRY(power, "kW", 2021)                                               \
   VALUE_ENTRY(obcstat, OBCSTAT, 2022)                                          \
   VALUE_ENTRY(obc_udc, "V", 2023)                                              \
-  VALUE_ENTRY(chst, "", 2024)                                                  \
+  VALUE_ENTRY(obc_idc, "A", 2031)                                              \
+  VALUE_ENTRY(chst, CHSTMODES, 2024)                                           \
+  VALUE_ENTRY(chstdty, "%", 2028)                                              \
+  VALUE_ENTRY(vchgpin, "V", 2029)                                              \
+  VALUE_ENTRY(ichgpin, "V", 2030)                                              \
   VALUE_ENTRY(cplt, "", 2025)                                                  \
   VALUE_ENTRY(chrq, "", 2026)                                                  \
   VALUE_ENTRY(chpw, "%", 2027)
