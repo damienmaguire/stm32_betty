@@ -30,20 +30,28 @@ Provides various drive modes on the web interface.
 | 3 Range | CDL = 0 — force the engine |
 | 4 Charge | Engine-on Park charge via SOC lie |
 
-## PHEV_Testing — G9090-47040 baseline
+## PHEV_Testing — G9090-47040 (v12)
 
 `vehmode` = Hybrid (default, charger pins idle) or PHEV (charger code runs).
 `chg` must also be On, CPLT present, pack healthy, `udc` < `Voltspnt`, `umax` < 4.00 V.
+CHST 78 % duty forces PWM off.
 
-| OBC | Zombie V1.3 | MCU |
-|---|---|---|
-| CHRQ | PWM1 | PA6 TIM3_CH1 10 Hz, 0 or 100 % |
-| CHPW | PWM2 | PA7 TIM3_CH2 10 Hz, duty = `chpwdty` |
-| CHST | brake in | PA15 digital (PWM capture later) |
-| VCHG | analog 2 | PC3, `obc_udc` = pin × `vchgscale` |
-| CPLT | start in | PD7 after external pilot circuit, polarity `cpltpol` |
+| OBC | Wire | Zombie V1.3 | MCU |
+|---|---|---|---|
+| CHRQ | Green | PWM1 | PA6 TIM3_CH1 10 Hz, 0 or 100 % |
+| CHPW | White | PWM2 | PA7 TIM3_CH2 10 Hz, duty = `chpwdty` |
+| CHST | Orange | brake in | PA15, 1 ms sample → `chstdty` / `chst` |
+| VCHG | Grey | Throttle 1 | PC0 after 1k/1k. `vchgpin` is the STM32 pin |
+| ICHG | Yellow | Throttle 2 | PC1 after 1k/1k. `ichgpin` is the STM32 pin |
+| CGND | Brown | GND | — |
+| PIMR | Red | IGCT 12 V | S20-1 |
+| CHEN | Green | 12 V permit | S20-3, GPIO later |
+| CHG | Black | hold at GND | S20-5 |
+| CPLT | — | start in | PD7 after external pilot circuit, polarity `cpltpol` |
 
-Pins can move once the unit is on the bench. Do not drive SMRs. Fuse DCHB (DC+). First evening is IGCT + earth + EVSE, no HV pair.
+Bench zeros (no HV, no AC): VCHG 2.32 V / ICHG 2.30 V at the OBC. Params `vchgzero` / `ichgzero`. Pull the 1 µF across the brake 1k5 before relying on `chstdty`.
+
+Do not drive SMRs. Fuse DCHB (DC+).
 
 ## Build
 
