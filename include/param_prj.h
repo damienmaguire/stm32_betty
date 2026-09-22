@@ -4,7 +4,7 @@
 #ifndef PARAM_PRJ_H_INCLUDED
 #define PARAM_PRJ_H_INCLUDED
 
-#define VER 12
+#define VER 13
 
 #define CAT_SETUP "General Setup"
 #define CAT_SENS  "Current Sensor"
@@ -41,6 +41,7 @@
   PARAM_ENTRY(CAT_MODE, bootgrace, "ms", 0, 10000, 4000, 16)                   \
   PARAM_ENTRY(CAT_MODE, chargespoof, "%", 30, 50, 40, 18)                      \
   PARAM_ENTRY(CAT_MODE, chargeceil, "%", 50, 95, 80, 19)                       \
+  PARAM_ENTRY(CAT_MODE, evfollow, ONOFF, 0, 1, 1, 30)                          \
   PARAM_ENTRY(CAT_CHG, chg, ONOFF, 0, 1, 0, 21)                                \
   PARAM_ENTRY(CAT_CHG, Voltspnt, "V", 170, 210, 197, 22)                       \
   PARAM_ENTRY(CAT_CHG, chglim, "A", 0, 16, 8, 23)                              \
@@ -81,6 +82,7 @@
   VALUE_ENTRY(ichgpin, "V", 2030)                                              \
   VALUE_ENTRY(cplt, "", 2025)                                                  \
   VALUE_ENTRY(chrq, "", 2026)                                                  \
-  VALUE_ENTRY(chpw, "%", 2027)
+  VALUE_ENTRY(chpw, "%", 2027)                                                  \
+  VALUE_ENTRY(evcan, ONOFF, 2032)
 
 #endif
