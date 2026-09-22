@@ -7,8 +7,7 @@
  *
  * ESP8266 web UI on the VCU shows PARAM / VALUE list over USART3.
  *
- * v12 / PHEV_Testing: VCHG=throttle1 PC0, ICHG=throttle2 PC1,
- * CHST duty on brake PA15 (1 ms window)
+ * v13 / PHEV_Testing: 0x529 EV-Active latches mode=EV when evfollow=On
  */
 #include "anain.h"
 #include "bmw_crc.h"
@@ -64,6 +63,7 @@ static uint8_t obcStat = OBC_IDLE;
 static uint8_t obcChrq = 0, obcChpw = 0, obcChst = 0, obcCplt = 0;
 static float obcUdc = 0, obcIdc = 0;
 static uint8_t chstHigh = 0, chstN = 0, chstDuty = 0;
+static uint8_t evCan = 0;
 
 static Stm32Scheduler *scheduler;
 static CanHardware *priusCan;
@@ -432,8 +432,19 @@ static bool CscRx(uint32_t canId, uint32_t *data, uint8_t dlc) {
 }
 static void CscClear() {}
 
-static bool PriusRx(uint32_t /*canId*/, uint32_t * /*data*/, uint8_t /*dlc*/) {
+/* 0x529 byte E bit 6 = OEM EV mode active. Latch Betty mode to EV.
+ * Do not steal Charge (Park soak). Do not auto-revert when HV ECU drops EV. */
+static bool PriusRx(uint32_t canId, uint32_t *data, uint8_t dlc) {
   lastPriusRx = nowMs();
+  if (canId == 0x529 && dlc >= 5) {
+    uint8_t b[8];
+    memcpy(b, data, 8);
+    evCan = (b[4] & 0x40) ? 1 : 0;
+    if (evCan && Param::GetInt(Param::evfollow) &&
+        Param::GetInt(Param::mode) != MODE_CHARGE &&
+        Param::GetInt(Param::mode) != MODE_EV)
+      Param::SetInt(Param::mode, MODE_EV);
+  }
   return false;
 }
 static void PriusClear() {}
@@ -567,6 +578,7 @@ static void publish() {
   Param::SetInt(Param::cplt, obcCplt);
   Param::SetInt(Param::chrq, obcChrq);
   Param::SetInt(Param::chpw, obcChpw);
+  Param::SetInt(Param::evcan, evCan);
   Param::SetInt(Param::uptime, (int)uptimeSec);
   if (carAwake())
     Param::SetInt(Param::opmode, Param::GetInt(Param::mode) + 1);
