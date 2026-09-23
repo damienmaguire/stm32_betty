@@ -2,9 +2,10 @@
  * Clock / NVIC / USART bring-up for ZombieVerter V1.3 (STM32F107).
  * Trimmed from stm32-vcu hwinit — no GS450H / SPI3 / PWM gauges.
  *
- * TIM3 CH1/CH2 on PA6/PA7 = Zombie PWM1/PWM2
- *   CH1 (PA6) CHRQ  — 10 Hz, 0 % or 100 %
+ * TIM3 CH1/CH2 on PA6/PA7 = Zombie PWM1/PWM2 via COS3122SR (0–12 V)
+ *   CH1 (PA6) ILMT  — 10 Hz, duty = ilmtdty
  *   CH2 (PA7) CHPW  — 10 Hz, duty = chpwdty
+ * PWM3 PB0 = CHRQ DC on/off (GPIO, same driver)
  */
 #include "hwinit.h"
 #include "hwdefs.h"
