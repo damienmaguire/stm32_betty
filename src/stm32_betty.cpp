@@ -1,13 +1,7 @@
 /*
  * stm32_betty — Gen 2 Prius Battery ECU on ZombieVerter VCU V1.3
  *
- * CAN1 500 k: Prius 0x03B / 0x3C9 / 0x3CB / 0x3CD / 0x4D1
- * CAN2 500 k: 3 x BMW PHEV 16s CSC (addrs 2/3/4)
- * Analog GP_analog1: Prius IB sensor after 1k/1k on V1.3
- *
- * ESP8266 web UI on the VCU shows PARAM / VALUE list over USART3.
- *
- * v13 / PHEV_Testing: 0x529 EV-Active latches mode=EV when evfollow=On
+ * v14 / PHEV_Testing: PWM1=ILMT, PWM2=CHPW, PWM3=CHRQ (COS3122 0–12 V)
  */
 #include "anain.h"
 #include "bmw_crc.h"
@@ -60,7 +54,7 @@ enum ObcStat { OBC_IDLE = 0, OBC_WAIT = 1, OBC_RUN = 2, OBC_STOP = 3, OBC_FAULT 
 #define OBC_PWM_ARR 999
 
 static uint8_t obcStat = OBC_IDLE;
-static uint8_t obcChrq = 0, obcChpw = 0, obcChst = 0, obcCplt = 0;
+static uint8_t obcChrq = 0, obcChpw = 0, obcIlmt = 0, obcChst = 0, obcCplt = 0;
 static float obcUdc = 0, obcIdc = 0;
 static uint8_t chstHigh = 0, chstN = 0, chstDuty = 0;
 static uint8_t evCan = 0;
@@ -183,7 +177,7 @@ static void updatePackFromCsc() {
       float tp = mods[m].temp[t];
       if (tp <= -39)
         continue;
-      if (tp >= 54.5f && tp <= 55.5f) /* unused CSC thermistor byte */
+      if (tp >= 54.5f && tp <= 55.5f)
         continue;
       if (tp < tmn)
         tmn = tp;
@@ -268,7 +262,6 @@ static uint8_t socToReport() {
       return holdSpoof();
     return (uint8_t)(Param::GetFloat(Param::chargespoof) + 0.5f);
   }
-  /* HOLD and RANGE use the 50–70 map */
   return holdSpoof();
 }
 
@@ -296,7 +289,6 @@ static void limitsFromHealth(uint8_t &cdl, uint8_t &ccl) {
     faultWord = 0x0A7F;
   }
 
-  /* Modes only apply while the pack is healthy. */
   if (faultWord == 0) {
     int mode = Param::GetInt(Param::mode);
     if (mode == MODE_EV && ccl < 60)
@@ -419,7 +411,6 @@ static void handleBmw(uint32_t canId, uint32_t data[2], uint8_t /*dlc*/) {
         mods[slot].cell[idx] = mv * 0.001f;
     }
   }
-  /* 0x182–184 only. mid==0 also matches 0x102 heartbeat and 0x202 status. */
   if (canId >= 0x182 && canId <= 0x184) {
     for (int i = 0; i < 4; i++)
       mods[slot].temp[i] = (float)b[i] - 40.0f;
@@ -432,8 +423,6 @@ static bool CscRx(uint32_t canId, uint32_t *data, uint8_t dlc) {
 }
 static void CscClear() {}
 
-/* 0x529 byte E bit 6 = OEM EV mode active. Latch Betty mode to EV.
- * Do not steal Charge (Park soak). Do not auto-revert when HV ECU drops EV. */
 static bool PriusRx(uint32_t canId, uint32_t *data, uint8_t dlc) {
   lastPriusRx = nowMs();
   if (canId == 0x529 && dlc >= 5) {
@@ -455,13 +444,22 @@ static bool carAwake() {
   return (nowMs() - lastPriusRx) < 1000;
 }
 
-static void obcPwm(uint8_t chrqOn, uint8_t dutyPct) {
-  if (dutyPct > 100)
-    dutyPct = 100;
-  timer_set_oc_value(TIM3, TIM_OC1, chrqOn ? (OBC_PWM_ARR + 1) : 0);
-  timer_set_oc_value(TIM3, TIM_OC2, (uint32_t)dutyPct * (OBC_PWM_ARR + 1) / 100);
+/* COS3122 non-inverting 0–12 V. duty = % time at 12 V.
+ * PWM1 PA6 ILMT, PWM2 PA7 CHPW, PWM3 PB0 CHRQ. */
+static void obcPwm(uint8_t chrqOn, uint8_t chpwPct, uint8_t ilmtPct) {
+  if (chpwPct > 100)
+    chpwPct = 100;
+  if (ilmtPct > 100)
+    ilmtPct = 100;
+  timer_set_oc_value(TIM3, TIM_OC1, (uint32_t)ilmtPct * (OBC_PWM_ARR + 1) / 100);
+  timer_set_oc_value(TIM3, TIM_OC2, (uint32_t)chpwPct * (OBC_PWM_ARR + 1) / 100);
+  if (chrqOn)
+    DigIo::PWM3.Set();
+  else
+    DigIo::PWM3.Clear();
   obcChrq = chrqOn;
-  obcChpw = dutyPct;
+  obcChpw = chpwPct;
+  obcIlmt = ilmtPct;
 }
 
 static bool packAllowsCharge() {
@@ -478,7 +476,6 @@ static bool packAllowsCharge() {
   return true;
 }
 
-/* 1 ms sample of PA15. 100 samples = one 10 Hz CHST period. */
 static void sampleChst() {
   if (DigIo::brake_in.Get())
     chstHigh++;
@@ -497,7 +494,6 @@ static void sampleChst() {
   }
 }
 
-/* Throttle 1/2 are 1k/1k. Reconstruct OBC volts, then subtract bench zeros. */
 static void readObcSense() {
   float p1 = AnaIn::throttle1.Get() * (3.3f / 4095.0f);
   float p2 = AnaIn::throttle2.Get() * (3.3f / 4095.0f);
@@ -520,19 +516,19 @@ static void serviceObc() {
   obcCplt = rawCplt;
 
   if (Param::GetInt(Param::vehmode) != VEH_PHEV) {
-    obcPwm(0, 0);
+    obcPwm(0, 0, 0);
     obcStat = OBC_IDLE;
     return;
   }
 
   if (obcChst == 3) {
-    obcPwm(0, 0);
+    obcPwm(0, 0, 0);
     obcStat = OBC_FAULT;
     return;
   }
 
   if (!Param::GetInt(Param::chg) || !packAllowsCharge()) {
-    obcPwm(0, 0);
+    obcPwm(0, 0, 0);
     obcStat = packAllowsCharge() ? OBC_STOP : OBC_FAULT;
     if (!Param::GetInt(Param::chg))
       obcStat = OBC_IDLE;
@@ -540,13 +536,14 @@ static void serviceObc() {
   }
 
   if (!obcCplt) {
-    obcPwm(0, 0);
+    obcPwm(0, 0, 0);
     obcStat = OBC_WAIT;
     return;
   }
 
   uint8_t duty = (uint8_t)Param::GetInt(Param::chpwdty);
-  obcPwm(1, duty);
+  uint8_t lim = (uint8_t)Param::GetInt(Param::ilmtdty);
+  obcPwm(1, duty, lim);
   obcStat = OBC_RUN;
 }
 
@@ -578,6 +575,7 @@ static void publish() {
   Param::SetInt(Param::cplt, obcCplt);
   Param::SetInt(Param::chrq, obcChrq);
   Param::SetInt(Param::chpw, obcChpw);
+  Param::SetInt(Param::ilmt, obcIlmt);
   Param::SetInt(Param::evcan, evCan);
   Param::SetInt(Param::uptime, (int)uptimeSec);
   if (carAwake())
@@ -702,7 +700,7 @@ int main(void) {
   can0.AddCallback(&cbPrius);
   SetCanFilters();
 
-  obcPwm(0, 0);
+  obcPwm(0, 0, 0);
   packV = Param::GetFloat(Param::packvhold);
   packA = 0;
   faultWord = 0;
