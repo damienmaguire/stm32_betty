@@ -4,7 +4,7 @@
 #ifndef PARAM_PRJ_H_INCLUDED
 #define PARAM_PRJ_H_INCLUDED
 
-#define VER 13
+#define VER 14
 
 #define CAT_SETUP "General Setup"
 #define CAT_SENS  "Current Sensor"
@@ -46,6 +46,7 @@
   PARAM_ENTRY(CAT_CHG, Voltspnt, "V", 170, 210, 197, 22)                       \
   PARAM_ENTRY(CAT_CHG, chglim, "A", 0, 16, 8, 23)                              \
   PARAM_ENTRY(CAT_CHG, chpwdty, "%", 0, 100, 40, 24)                           \
+  PARAM_ENTRY(CAT_CHG, ilmtdty, "%", 0, 100, 20, 31)                           \
   PARAM_ENTRY(CAT_CHG, vchgzero, "V", 0, 5, 2.32, 27)                          \
   PARAM_ENTRY(CAT_CHG, vchgscale, "V/V", 0, 200, 40, 25)                       \
   PARAM_ENTRY(CAT_CHG, ichgzero, "V", 0, 5, 2.30, 28)                          \
@@ -83,6 +84,7 @@
   VALUE_ENTRY(cplt, "", 2025)                                                  \
   VALUE_ENTRY(chrq, "", 2026)                                                  \
   VALUE_ENTRY(chpw, "%", 2027)                                                  \
+  VALUE_ENTRY(ilmt, "%", 2033)                                                  \
   VALUE_ENTRY(evcan, ONOFF, 2032)
 
 #endif
