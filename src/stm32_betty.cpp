@@ -666,13 +666,6 @@ int main(void) {
   ANA_IN_CONFIGURE(ANA_IN_LIST);
   tim3_setup();
 
-  for (int i = 0; i < 16; i++) {
-    DigIo::led_out.Toggle();
-    for (volatile int d = 0; d < 300000; d++)
-      ;
-    iwdg_reset();
-  }
-
   Stm32Scheduler s(TIM4);
   scheduler = &s;
 
