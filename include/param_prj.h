@@ -4,7 +4,7 @@
 #ifndef PARAM_PRJ_H_INCLUDED
 #define PARAM_PRJ_H_INCLUDED
 
-#define VER 14
+#define VER 15
 
 #define CAT_SETUP "General Setup"
 #define CAT_SENS  "Current Sensor"
@@ -17,6 +17,7 @@
 #define VEHMODES  "0=Hybrid, 1=PHEV"
 #define OBCSTAT   "0=Idle, 1=WaitPilot, 2=Run, 3=Stop, 4=Fault"
 #define CHSTMODES "0=None, 1=Standby, 2=Ready, 3=Fault"
+#define WAKESRC   "0=None, 1=Drive, 2=Charge, 3=Both"
 #define ONOFF     "0=Off, 1=On, 2=na"
 #define POLARITY  "0=ActiveLow, 1=ActiveHigh"
 
@@ -34,6 +35,8 @@
   PARAM_ENTRY(CAT_BMS, packvhold, "V", 160, 210, 181, 17)                      \
   PARAM_ENTRY(CAT_SETUP, UseRS232, ONOFF, 0, 1, 0, 11)                         \
   PARAM_ENTRY(CAT_SETUP, vehmode, VEHMODES, 0, 1, 0, 20)                       \
+  PARAM_ENTRY(CAT_SETUP, sleepen, ONOFF, 0, 1, 0, 32)                          \
+  PARAM_ENTRY(CAT_SETUP, sleeptime, "ms", 1000, 30000, 5000, 33)               \
   PARAM_ENTRY(CAT_MODE, mode, DRVMODES, 0, 4, 0, 12)                           \
   PARAM_ENTRY(CAT_MODE, cdfloor, "%", 10, 50, 25, 13)                          \
   PARAM_ENTRY(CAT_MODE, cdspoof, "%", 60, 80, 74, 14)                          \
@@ -85,6 +88,10 @@
   VALUE_ENTRY(chrq, "", 2026)                                                  \
   VALUE_ENTRY(chpw, "%", 2027)                                                  \
   VALUE_ENTRY(ilmt, "%", 2033)                                                  \
-  VALUE_ENTRY(evcan, ONOFF, 2032)
+  VALUE_ENTRY(evcan, ONOFF, 2032)                                               \
+  VALUE_ENTRY(t15, ONOFF, 2034)                                                 \
+  VALUE_ENTRY(hvreq, ONOFF, 2035)                                               \
+  VALUE_ENTRY(chgrel, ONOFF, 2036)                                              \
+  VALUE_ENTRY(wakesrc, WAKESRC, 2037)
 
 #endif
