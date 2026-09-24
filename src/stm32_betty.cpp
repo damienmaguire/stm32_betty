@@ -1,7 +1,7 @@
 /*
  * stm32_betty — Gen 2 Prius Battery ECU on ZombieVerter VCU V1.3
  *
- * v14 / PHEV_Testing: PWM1=ILMT, PWM2=CHPW, PWM3=CHRQ (COS3122 0–12 V)
+ * v15 / PHEV_Testing: sleep/wake + PD15 charger relay
  */
 #include "anain.h"
 #include "bmw_crc.h"
@@ -58,6 +58,9 @@ static uint8_t obcChrq = 0, obcChpw = 0, obcIlmt = 0, obcChst = 0, obcCplt = 0;
 static float obcUdc = 0, obcIdc = 0;
 static uint8_t chstHigh = 0, chstN = 0, chstDuty = 0;
 static uint8_t evCan = 0;
+static uint8_t t15In = 0, hvReqIn = 0, chgRel = 0, wakeSrc = 0;
+static bool sleepBlocked = false;
+static uint32_t quietSince = 0;
 
 static Stm32Scheduler *scheduler;
 static CanHardware *priusCan;
@@ -444,8 +447,55 @@ static bool carAwake() {
   return (nowMs() - lastPriusRx) < 1000;
 }
 
-/* COS3122 non-inverting 0–12 V. duty = % time at 12 V.
- * PWM1 PA6 ILMT, PWM2 PA7 CHPW, PWM3 PB0 CHRQ. */
+static void spinMs(uint16_t ms) {
+  while (ms--) {
+    iwdg_reset();
+    for (volatile uint32_t d = 0; d < 9000; d++)
+      ;
+  }
+}
+
+/* EN=1 STB_N=0 = Go-to-Sleep so INH floats, then drop PSU_EN.
+ * If the sleep-override jumper is still fitted we come back and restore. */
+static void goSleep() {
+  obcPwm(0, 0, 0);
+  DigIo::gp_out1.Clear();
+  chgRel = 0;
+  DigIo::CANEN.Set();
+  DigIo::CANSBY.Clear();
+  spinMs(5);
+  DigIo::PSU_EN.Clear();
+  spinMs(300);
+  DigIo::CANSBY.Set();
+  DigIo::PSU_EN.Set();
+  sleepBlocked = true;
+}
+
+static void servicePower() {
+  t15In = DigIo::t15_digi.Get() ? 1 : 0;
+  hvReqIn = DigIo::HV_req.Get() ? 1 : 0;
+  wakeSrc = (uint8_t)((t15In ? 1 : 0) | (hvReqIn ? 2 : 0));
+
+  uint8_t wantRel = (hvReqIn && !t15In) ? 1 : 0;
+  if (wantRel)
+    DigIo::gp_out1.Set();
+  else
+    DigIo::gp_out1.Clear();
+  chgRel = wantRel;
+
+  bool keep = t15In || hvReqIn || carAwake() || obcCplt || (obcStat == OBC_RUN);
+  if (keep) {
+    quietSince = nowMs();
+    sleepBlocked = false;
+    return;
+  }
+  if (!Param::GetInt(Param::sleepen) || sleepBlocked || inBootGrace())
+    return;
+  uint32_t need = (uint32_t)Param::GetInt(Param::sleeptime);
+  if ((nowMs() - quietSince) >= need)
+    goSleep();
+}
+
 static void obcPwm(uint8_t chrqOn, uint8_t chpwPct, uint8_t ilmtPct) {
   if (chpwPct > 100)
     chpwPct = 100;
@@ -515,6 +565,15 @@ static void serviceObc() {
     rawCplt = rawCplt ? 0 : 1;
   obcCplt = rawCplt;
 
+  if (t15In || !chgRel) {
+    obcPwm(0, 0, 0);
+    if (Param::GetInt(Param::vehmode) != VEH_PHEV)
+      obcStat = OBC_IDLE;
+    else if (t15In)
+      obcStat = OBC_IDLE;
+    return;
+  }
+
   if (Param::GetInt(Param::vehmode) != VEH_PHEV) {
     obcPwm(0, 0, 0);
     obcStat = OBC_IDLE;
@@ -577,8 +636,12 @@ static void publish() {
   Param::SetInt(Param::chpw, obcChpw);
   Param::SetInt(Param::ilmt, obcIlmt);
   Param::SetInt(Param::evcan, evCan);
+  Param::SetInt(Param::t15, t15In);
+  Param::SetInt(Param::hvreq, hvReqIn);
+  Param::SetInt(Param::chgrel, chgRel);
+  Param::SetInt(Param::wakesrc, wakeSrc);
   Param::SetInt(Param::uptime, (int)uptimeSec);
-  if (carAwake())
+  if (carAwake() || t15In)
     Param::SetInt(Param::opmode, Param::GetInt(Param::mode) + 1);
   else
     Param::SetInt(Param::opmode, 0);
@@ -608,6 +671,7 @@ static void Ms100Task() {
   tx3CB();
   tx3CD();
   tx3C9();
+  servicePower();
   serviceObc();
   publish();
   if (scheduler)
@@ -675,6 +739,8 @@ int main(void) {
 
   DigIo::CANEN.Set();
   DigIo::CANSBY.Set();
+  DigIo::PSU_EN.Set();
+  DigIo::gp_out1.Clear();
   DigIo::inv_out.Clear();
 
   Terminal t(USART3, TermCmds, false, true, !Param::GetBool(Param::UseRS232));
@@ -699,6 +765,7 @@ int main(void) {
   faultWord = 0;
   bootMs = nowMs();
   tBorn = nowMs();
+  quietSince = nowMs();
 
   s.AddTask(Ms1Task, 1);
   s.AddTask(Ms10Task, 10);
