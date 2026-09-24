@@ -753,16 +753,16 @@ int main(void) {
 
   Stm32Can can0(CAN1, CanHardware::Baud500);
   Stm32Can can1(CAN2, CanHardware::Baud500, true);
-  priusCan = &can0;
-  cscCan = &can1;
+  priusCan = &can1;
+  cscCan = &can0;
 
   CanMap cm(&can0);
   TerminalCommands::SetCanMap(&cm);
 
   FunctionPointerCallback cbCsc(CscRx, CscClear);
-  can1.AddCallback(&cbCsc);
+  can0.AddCallback(&cbCsc);
   FunctionPointerCallback cbPrius(PriusRx, PriusClear);
-  can0.AddCallback(&cbPrius);
+  can1.AddCallback(&cbPrius);
   SetCanFilters();
 
   obcPwm(0, 0, 0);
