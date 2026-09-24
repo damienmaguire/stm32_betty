@@ -60,6 +60,7 @@ static uint8_t chstHigh = 0, chstN = 0, chstDuty = 0;
 static uint8_t evCan = 0;
 static uint8_t t15In = 0, hvReqIn = 0, chgRel = 0, wakeSrc = 0;
 static bool sleepBlocked = false;
+static bool cscPause = false;
 static uint32_t quietSince = 0;
 
 static Stm32Scheduler *scheduler;
@@ -377,7 +378,7 @@ static void tx4D1() {
 }
 
 static void pollBmw() {
-  if (!cscCan)
+  if (!cscCan || cscPause)
     return;
   if (nextmes >= 6) {
     nextmes = 0;
@@ -447,6 +448,8 @@ static bool carAwake() {
   return (nowMs() - lastPriusRx) < 1000;
 }
 
+static void obcPwm(uint8_t chrqOn, uint8_t chpwPct, uint8_t ilmtPct);
+
 static void spinMs(uint16_t ms) {
   while (ms--) {
     iwdg_reset();
@@ -461,6 +464,8 @@ static void goSleep() {
   obcPwm(0, 0, 0);
   DigIo::gp_out1.Clear();
   chgRel = 0;
+  cscPause = true;
+  spinMs(100);
   DigIo::CANEN.Set();
   DigIo::CANSBY.Clear();
   spinMs(5);
@@ -468,6 +473,7 @@ static void goSleep() {
   spinMs(300);
   DigIo::CANSBY.Set();
   DigIo::PSU_EN.Set();
+  cscPause = false;
   sleepBlocked = true;
 }
 
@@ -483,7 +489,7 @@ static void servicePower() {
     DigIo::gp_out1.Clear();
   chgRel = wantRel;
 
-  bool keep = t15In || hvReqIn || carAwake() || obcCplt || (obcStat == OBC_RUN);
+  bool keep = t15In || hvReqIn;
   if (keep) {
     quietSince = nowMs();
     sleepBlocked = false;
