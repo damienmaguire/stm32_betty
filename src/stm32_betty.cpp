@@ -462,6 +462,7 @@ static void spinMs(uint16_t ms) {
  * If the sleep-override jumper is still fitted we come back and restore. */
 static void goSleep() {
   obcPwm(0, 0, 0);
+  DigIo::oil_pwm.Clear();
   DigIo::gp_out1.Clear();
   chgRel = 0;
   cscPause = true;
@@ -563,15 +564,24 @@ static void readObcSense() {
   obcIdc = (ichg - Param::GetFloat(Param::ichgzero)) * Param::GetFloat(Param::ichgscale);
 }
 
+static void setPilotC(uint8_t on) {
+  if (on)
+    DigIo::oil_pwm.Set();
+  else
+    DigIo::oil_pwm.Clear();
+  Param::SetInt(Param::cpc, on ? 1 : 0);
+}
+
 static void serviceObc() {
   readObcSense();
 
   uint8_t rawCplt = DigIo::start_in.Get() ? 1 : 0;
   if (Param::GetInt(Param::cpltpol) == 0)
     rawCplt = rawCplt ? 0 : 1;
-  obcCplt = rawCplt;
+  obcCplt = hvReqIn || rawCplt;
 
   if (t15In || !chgRel) {
+    setPilotC(0);
     obcPwm(0, 0, 0);
     if (Param::GetInt(Param::vehmode) != VEH_PHEV)
       obcStat = OBC_IDLE;
@@ -581,18 +591,21 @@ static void serviceObc() {
   }
 
   if (Param::GetInt(Param::vehmode) != VEH_PHEV) {
+    setPilotC(0);
     obcPwm(0, 0, 0);
     obcStat = OBC_IDLE;
     return;
   }
 
   if (obcChst == 3) {
+    setPilotC(0);
     obcPwm(0, 0, 0);
     obcStat = OBC_FAULT;
     return;
   }
 
   if (!Param::GetInt(Param::chg) || !packAllowsCharge()) {
+    setPilotC(0);
     obcPwm(0, 0, 0);
     obcStat = packAllowsCharge() ? OBC_STOP : OBC_FAULT;
     if (!Param::GetInt(Param::chg))
@@ -600,12 +613,14 @@ static void serviceObc() {
     return;
   }
 
-  if (!obcCplt) {
+  if (!hvReqIn) {
+    setPilotC(0);
     obcPwm(0, 0, 0);
     obcStat = OBC_WAIT;
     return;
   }
 
+  setPilotC(1);
   uint8_t duty = (uint8_t)Param::GetInt(Param::chpwdty);
   uint8_t lim = (uint8_t)Param::GetInt(Param::ilmtdty);
   obcPwm(1, duty, lim);
@@ -747,6 +762,7 @@ int main(void) {
   DigIo::CANSBY.Set();
   DigIo::PSU_EN.Set();
   DigIo::gp_out1.Clear();
+  DigIo::oil_pwm.Clear();
   DigIo::inv_out.Clear();
 
   Terminal t(USART3, TermCmds, false, true, !Param::GetBool(Param::UseRS232));

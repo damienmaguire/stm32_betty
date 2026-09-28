@@ -4,7 +4,7 @@
 #ifndef PARAM_PRJ_H_INCLUDED
 #define PARAM_PRJ_H_INCLUDED
 
-#define VER 15
+#define VER 16
 
 #define CAT_SETUP "General Setup"
 #define CAT_SENS  "Current Sensor"
@@ -92,6 +92,6 @@
   VALUE_ENTRY(t15, ONOFF, 2034)                                                 \
   VALUE_ENTRY(hvreq, ONOFF, 2035)                                               \
   VALUE_ENTRY(chgrel, ONOFF, 2036)                                              \
-  VALUE_ENTRY(wakesrc, WAKESRC, 2037)
-
+  VALUE_ENTRY(wakesrc, WAKESRC, 2037)                                           \
+  VALUE_ENTRY(cpc, ONOFF, 2038)
 #endif
