@@ -58,6 +58,7 @@
   DIG_IO_ENTRY(CANSBY,    GPIOD, GPIO1,  PinMode::OUTPUT)                      \
   DIG_IO_ENTRY(PSU_EN,    GPIOE, GPIO0,  PinMode::OUTPUT)                      \
   DIG_IO_ENTRY(t15_digi, GPIOD, GPIO6, PinMode::INPUT_FLT)                     \
+  DIG_IO_ENTRY(oil_pwm, GPIOE, GPIO9, PinMode::OUTPUT)                         \
   DIG_IO_ENTRY(gp_12Vin, GPIOD, GPIO4, PinMode::INPUT_FLT)                     \
   DIG_IO_ENTRY(dummypin, GPIOE, GPIO7, PinMode::INPUT_PD)
 
