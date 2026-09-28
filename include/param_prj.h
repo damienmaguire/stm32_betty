@@ -13,7 +13,7 @@
 #define CAT_CHG   "PHEV Charger"
 
 #define DRVMODES  "0=Hold, 1=CD, 2=EV, 3=Range, 4=Charge"
-#define OPMODES   "0=Off, 1=Hold, 2=CD, 3=EV, 4=Range, 5=Charge"
+#define OPMODES   "0=Off, 1=Hold, 2=CD, 3=EV, 4=Range, 5=Charge, 6=AC_CHG"
 #define VEHMODES  "0=Hybrid, 1=PHEV"
 #define OBCSTAT   "0=Idle, 1=WaitPilot, 2=Run, 3=Stop, 4=Fault"
 #define CHSTMODES "0=None, 1=Standby, 2=Ready, 3=Fault"

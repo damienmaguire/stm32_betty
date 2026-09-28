@@ -662,7 +662,9 @@ static void publish() {
   Param::SetInt(Param::chgrel, chgRel);
   Param::SetInt(Param::wakesrc, wakeSrc);
   Param::SetInt(Param::uptime, (int)uptimeSec);
-  if (carAwake() || t15In)
+  if (hvReqIn && !t15In && (obcStat == OBC_RUN || chgRel))
+    Param::SetInt(Param::opmode, 6);
+  else if (carAwake() || t15In)
     Param::SetInt(Param::opmode, Param::GetInt(Param::mode) + 1);
   else
     Param::SetInt(Param::opmode, 0);
