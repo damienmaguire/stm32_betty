@@ -4,7 +4,7 @@
 #ifndef PARAM_PRJ_H_INCLUDED
 #define PARAM_PRJ_H_INCLUDED
 
-#define VER 16
+#define VER 17
 
 #define CAT_SETUP "General Setup"
 #define CAT_SENS  "Current Sensor"
@@ -70,10 +70,10 @@
   VALUE_ENTRY(fault, "hex", 2012)                                              \
   VALUE_ENTRY(uaux, "V", 2013)                                                 \
   VALUE_ENTRY(ibadc, "dig", 2014)                                              \
-  VALUE_ENTRY(ibpin, "V", 2015)                                                 \
+  VALUE_ENTRY(ibpin, "V", 2015)                                                \
   VALUE_ENTRY(cpuload, "%", 2016)                                              \
-  VALUE_ENTRY(version, "", 2017)                                                \
-  VALUE_ENTRY(uptime, "sec", 2018)                                              \
+  VALUE_ENTRY(version, "", 2017)                                               \
+  VALUE_ENTRY(uptime, "sec", 2018)                                             \
   VALUE_ENTRY(cells, "", 2019)                                                 \
   VALUE_ENTRY(deltav, "V", 2020)                                               \
   VALUE_ENTRY(power, "kW", 2021)                                               \
@@ -86,12 +86,15 @@
   VALUE_ENTRY(ichgpin, "V", 2030)                                              \
   VALUE_ENTRY(cplt, "", 2025)                                                  \
   VALUE_ENTRY(chrq, "", 2026)                                                  \
-  VALUE_ENTRY(chpw, "%", 2027)                                                  \
-  VALUE_ENTRY(ilmt, "%", 2033)                                                  \
-  VALUE_ENTRY(evcan, ONOFF, 2032)                                               \
-  VALUE_ENTRY(t15, ONOFF, 2034)                                                 \
-  VALUE_ENTRY(hvreq, ONOFF, 2035)                                               \
-  VALUE_ENTRY(chgrel, ONOFF, 2036)                                              \
-  VALUE_ENTRY(wakesrc, WAKESRC, 2037)                                           \
-  VALUE_ENTRY(cpc, ONOFF, 2038)
+  VALUE_ENTRY(chpw, "%", 2027)                                                 \
+  VALUE_ENTRY(ilmt, "%", 2033)                                                 \
+  VALUE_ENTRY(evcan, ONOFF, 2032)                                              \
+  VALUE_ENTRY(t15, ONOFF, 2034)                                                \
+  VALUE_ENTRY(hvreq, ONOFF, 2035)                                              \
+  VALUE_ENTRY(chgrel, ONOFF, 2036)                                             \
+  VALUE_ENTRY(wakesrc, WAKESRC, 2037)                                          \
+  VALUE_ENTRY(cpc, ONOFF, 2038)                                                \
+  VALUE_ENTRY(cpdty, "%", 2039)                                                \
+  VALUE_ENTRY(evsea, "A", 2040)
+
 #endif
