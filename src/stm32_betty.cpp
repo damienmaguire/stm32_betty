@@ -64,6 +64,7 @@ static uint8_t t15In = 0, hvReqIn = 0, chgRel = 0, wakeSrc = 0;
 static bool sleepBlocked = false;
 static bool cscPause = false;
 static uint32_t quietSince = 0;
+static bool chgHoldOff = false;
 
 #define CP_DEMCR   (*(volatile uint32_t *)0xE000EDFC)
 #define CP_DWTCTRL (*(volatile uint32_t *)0xE0001000)
@@ -457,6 +458,7 @@ static bool carAwake() {
 }
 
 static void obcPwm(uint8_t chrqOn, uint8_t chpwPct, uint8_t ilmtPct);
+static bool packAllowsCharge();
 
 static void updateCpDuty() {
   if (cpLastMs == 0 || (nowMs() - cpLastMs) > 200) {
@@ -538,7 +540,9 @@ static void servicePower() {
   hvReqIn = DigIo::HV_req.Get() ? 1 : 0;
   wakeSrc = (uint8_t)((t15In ? 1 : 0) | (hvReqIn ? 2 : 0));
 
-  uint8_t wantRel = (hvReqIn && !t15In) ? 1 : 0;
+  uint8_t wantRel = (hvReqIn && !t15In &&
+                     Param::GetInt(Param::chg) &&
+                     packAllowsCharge()) ? 1 : 0;
   if (wantRel)
     DigIo::gp_out1.Set();
   else
@@ -579,11 +583,20 @@ static bool packAllowsCharge() {
     return false;
   if (faultWord != 0)
     return false;
-  if (maxCell >= 4.00f)
-    return false;
-  if (packV >= Param::GetFloat(Param::Voltspnt))
-    return false;
-  if (socReal >= Param::GetFloat(Param::chargeceil))
+
+  if (maxCell >= 4.00f ||
+      packV >= Param::GetFloat(Param::Voltspnt) ||
+      socReal >= Param::GetFloat(Param::chargeceil))
+    chgHoldOff = true;
+
+  if (!hvReqIn)
+    chgHoldOff = false;
+  else if (maxCell > 0.5f && maxCell <= 3.92f &&
+           packV < (Param::GetFloat(Param::Voltspnt) - 2.0f) &&
+           socReal < (Param::GetFloat(Param::chargeceil) - 2.0f))
+    chgHoldOff = false;
+
+  if (chgHoldOff)
     return false;
   return true;
 }
