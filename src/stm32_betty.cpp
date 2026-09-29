@@ -1,7 +1,7 @@
 /*
  * stm32_betty — Gen 2 Prius Battery ECU on ZombieVerter VCU V1.3
  *
- * v15 / PHEV_Testing: sleep/wake + PD15 charger relay
+ * v17 / PHEV_Testing: EXTI7 CP duty + Type 2 State C
  */
 #include "anain.h"
 #include "bmw_crc.h"
@@ -23,6 +23,8 @@
 #include <libopencm3/stm32/iwdg.h>
 #include <libopencm3/stm32/gpio.h>
 #include <libopencm3/stm32/timer.h>
+#include <libopencm3/stm32/exti.h>
+#include <libopencm3/cm3/nvic.h>
 #include <math.h>
 #include <string.h>
 #include "canmap.h"
@@ -62,6 +64,12 @@ static uint8_t t15In = 0, hvReqIn = 0, chgRel = 0, wakeSrc = 0;
 static bool sleepBlocked = false;
 static bool cscPause = false;
 static uint32_t quietSince = 0;
+
+#define CP_DEMCR   (*(volatile uint32_t *)0xE000EDFC)
+#define CP_DWTCTRL (*(volatile uint32_t *)0xE0001000)
+#define CP_DWTCYC  (*(volatile uint32_t *)0xE0001004)
+static volatile uint32_t cpRise = 0, cpHigh = 0, cpPer = 0, cpLastMs = 0;
+static uint8_t cpDty = 0, evseA = 0;
 
 static Stm32Scheduler *scheduler;
 static CanHardware *priusCan;
@@ -450,6 +458,53 @@ static bool carAwake() {
 
 static void obcPwm(uint8_t chrqOn, uint8_t chpwPct, uint8_t ilmtPct);
 
+static void updateCpDuty() {
+  if (cpLastMs == 0 || (nowMs() - cpLastMs) > 200) {
+    cpDty = 0;
+    evseA = 0;
+    return;
+  }
+  uint32_t per = cpPer;
+  uint32_t hi = cpHigh;
+  if (per < 36000 || per > 144000)
+    return;
+  uint32_t d = hi * 100 / per;
+  if (d > 100)
+    d = 100;
+  cpDty = (uint8_t)d;
+  if (d >= 10 && d <= 85)
+    evseA = (uint8_t)((d * 6 + 5) / 10);
+  else
+    evseA = 0;
+}
+
+static void cpDutyInit() {
+  CP_DEMCR |= (1u << 24);
+  CP_DWTCTRL |= 1u;
+  exti_select_source(EXTI7, GPIOD);
+  exti_set_trigger(EXTI7, EXTI_TRIGGER_BOTH);
+  exti_enable_request(EXTI7);
+  nvic_enable_irq(NVIC_EXTI9_5_IRQ);
+}
+
+extern "C" void exti9_5_isr(void) {
+  if (!exti_get_flag_status(EXTI7))
+    return;
+  exti_reset_request(EXTI7);
+  uint32_t t = CP_DWTCYC;
+  bool pin = gpio_get(GPIOD, GPIO7) != 0;
+  if (pin) {
+    uint32_t per = t - cpRise;
+    cpRise = t;
+    if (per > 36000 && per < 144000)
+      cpPer = per;
+  } else {
+    cpHigh = t - cpRise;
+  }
+  cpLastMs = millisCnt;
+}
+
+
 static void spinMs(uint16_t ms) {
   while (ms--) {
     iwdg_reset();
@@ -623,6 +678,11 @@ static void serviceObc() {
   setPilotC(1);
   uint8_t duty = (uint8_t)Param::GetInt(Param::chpwdty);
   uint8_t lim = (uint8_t)Param::GetInt(Param::ilmtdty);
+  if (evseA > 0 && evseA < 16) {
+    uint8_t cap = (uint8_t)(evseA * 100 / 16);
+    if (lim > cap)
+      lim = cap;
+  }
   obcPwm(1, duty, lim);
   obcStat = OBC_RUN;
 }
@@ -661,6 +721,8 @@ static void publish() {
   Param::SetInt(Param::hvreq, hvReqIn);
   Param::SetInt(Param::chgrel, chgRel);
   Param::SetInt(Param::wakesrc, wakeSrc);
+  Param::SetInt(Param::cpdty, cpDty);
+  Param::SetInt(Param::evsea, evseA);
   Param::SetInt(Param::uptime, (int)uptimeSec);
   if (hvReqIn && !t15In && (obcStat == OBC_RUN || chgRel))
     Param::SetInt(Param::opmode, 6);
@@ -695,6 +757,7 @@ static void Ms100Task() {
   tx3CD();
   tx3C9();
   servicePower();
+  updateCpDuty();
   serviceObc();
   publish();
   if (scheduler)
@@ -765,6 +828,7 @@ int main(void) {
   DigIo::PSU_EN.Set();
   DigIo::gp_out1.Clear();
   DigIo::oil_pwm.Clear();
+  cpDutyInit();
   DigIo::inv_out.Clear();
 
   Terminal t(USART3, TermCmds, false, true, !Param::GetBool(Param::UseRS232));
